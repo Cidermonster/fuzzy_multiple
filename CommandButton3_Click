@@ -1,0 +1,25 @@
+Private Sub CommandButton3_Click()
+    Application.ScreenUpdating = False
+    Dim c, d, n, Avg, h, i, j, k, l, m, e, S, D2, F, CI, PI
+    Sheets(1).Activate                                              'アクティブをSheet1に戻す
+    Sheets(1).Range("A1").CurrentRegion.Select                      '表自動選択
+    c = Selection.Columns.Count - 1                                 '説明変数の数
+    d = c + 1                                                       '拡張した説明変数の数
+    n = Selection.Rows.Count - 1                                    '観測数
+    'ここから限界積
+    For i = 2 To n + 1
+        For j = 2 To d
+            For k = j + 1 To d
+                If Cells(i, j).Value + Cells(i, k).Value - 1 > 0 Then
+                    Cells(i, l + d + 1).Value = Cells(i, j).Value + Cells(i, k).Value - 1
+                    l = l + 1
+                Else
+                    Cells(i, l + d + 1).Value = 0
+                    l = l + 1
+                End If
+            Next k
+        Next j
+        l = 0
+    Next i
+    Unload Me
+End Sub
