@@ -212,6 +212,10 @@ Sub ALL()
                     ActiveSheet.Rows(18 + i).Delete
                     Sheets(1).Columns(i + 2).Delete
                     m = m + 1
+                ElseIf Cells(18 + i, 4).Value = 65535 Then '作動未確認
+                    ActiveSheet.Rows(18 + i).Delete
+                    Sheets(1).Columns(i + 2).Delete
+                    m = m + 1
                 Else
                     m = m + 0
                 End If
