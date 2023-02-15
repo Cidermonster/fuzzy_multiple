@@ -1,0 +1,543 @@
+Sub ALL()
+    Application.ScreenUpdating = False
+    Dim c, d, n, Avg, h, i, j, k, l, m, e, S, D2, F, CI, PI
+    Dim y As Range, x As Range, Rng As Range, x_ As Range
+    Dim Ans As Variant
+    
+    '1:重回帰分析
+    
+    '元データ保存
+    Worksheets.add Before:=Worksheets(1)
+    Sheets(2).Range("A1").CurrentRegion.Copy Sheets(1).Range("A1")
+    
+    Sheets(1).Activate                                              'アクティブをSheet1に戻す
+
+    Sheets(1).Range("A1").CurrentRegion.Select                      '表自動選択
+
+     c = Selection.Columns.Count - 1                                 '説明変数の数
+    d = c + 1                                                       '拡張した説明変数の数
+    n = Selection.Rows.Count - 1                                    '観測数
+    Set y = Selection.Resize(, 1)                                   '目的変数
+    Set x = Selection.Resize(, c).Offset(, 1)                       '説明変数
+    
+    'MsgBox "A;ここまで動いてる"                                     'テスト
+    
+    't-ノルム選択
+    UserForm1.Show
+    
+    '1行目名称行
+    For i = 2 To d
+        For j = i + 1 To d
+            Cells(1, k + d + 1).Value = Cells(1, i) & "&" & Cells(1, j)
+            k = k + 1
+        Next j
+    Next i
+    
+    Sheets(1).Range("A1").CurrentRegion.Select                      '表自動選択
+    Selection.Borders(xlDiagonalDown).LineStyle = xlNone
+    Selection.Borders(xlDiagonalUp).LineStyle = xlNone
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideVertical)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideHorizontal)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    't-ノルム選択終了
+    
+    'SW選択変数処理追加
+    Worksheets.add After:=Worksheets(Worksheets.Count)              '読み取りシート作成
+    ActiveSheet.Name = "read data"
+    Do While h = 0
+        Ans = InputBox(Prompt:="Stepwise法で使用する変数(t値)選択範囲(1～2)の指定")
+        If Ans <> "" Then
+            If Ans >= 1 And Ans <= 2 Then
+                Worksheets("read data").Cells(1, 1).Value = Ans
+                Worksheets("read data").Cells(1, 2).Value = -Ans
+                h = 1
+            Else
+                h = 0
+                MsgBox "正しい範囲の値を入力してください"
+            End If
+        End If
+    Loop
+    Call Sheets("read data").Move(After:=Sheets(1))
+    
+    Sheets(1).Activate                                              'アクティブをSheet1に戻す
+    
+    'All Data更新(元データ+tノルム)
+    Sheets(1).Range("A1").CurrentRegion.Select                      '表自動選択
+    c = Selection.Columns.Count - 1                                 '説明変数の数
+    d = c + 1                                                       '拡張した説明変数の数
+    n = Selection.Rows.Count - 1                                    '観測数
+    Set y = Selection.Resize(, 1)                                   '目的変数
+    Set x = Selection.Resize(, c).Offset(, 1)                       '説明変数
+
+    '重回帰分析start
+    '回帰分析実行
+    Application.Run "ATPVBAEN.XLAM!Regress", y, x, False, True, 99, "", _
+    True, True, False, False, , False
+    
+    '最下部指定
+    Set Rng = Range("A1048576").End(xlUp)
+        
+    '信頼区間と予測区間の空欄を作成＆書式設定作成
+    With Range("E24:H24").Offset(c - 1)
+        .Value = Array("信頼区間" & vbLf & "下限95%", "信頼区間" & vbLf & "上限95%", _
+            "予測区間" & vbLf & "下限95%", "予測区間" & vbLf & "上限95%")
+        .HorizontalAlignment = xlCenter
+        With .Borders(xlEdgeTop)
+            .LineStyle = True
+            .Weight = xlMedium
+        End With
+        .Borders(xlEdgeBottom).LineStyle = True
+        With .Offset(Rng.Row - 24 - c + 1).Borders(xlEdgeBottom)
+            .LineStyle = True
+            .Weight = xlMedium
+        End With
+    End With
+    Range("A:I").EntireColumn.AutoFit
+    
+    '標準化残差修正
+    Set Rng = Cells.Find(What:="標準残差")
+    Rng.Value = "標準化残差"
+    Rng.Offset(, -3).Value = "観測(ID)"
+    Set Rng = Rng.Offset(1)
+    Do Until Rng.Value = ""
+        Rng.Value = Rng.Offset(, -1) / Range("B7")
+        If Abs(Rng.Value) > 3 Then Rng.Font.Color = vbRed
+        Set Rng = Rng.Offset(1)
+    Loop
+    
+    'マハラノビス汎距離計算
+    ReDim e(1 To n, 1 To c)
+    ReDim S(1 To c, 1 To c)
+    ReDim D2(1 To n)
+    With Application.WorksheetFunction
+        For j = 1 To c
+            Set x_ = x.Resize(, 1).Offset(, j - 1)
+            Avg = .Average(x_)
+            For i = 1 To n
+                e(i, j) = x_(i + 1, 1) - Avg
+            Next
+        Next
+        For i = 1 To c
+            For j = 1 To c
+                For k = 1 To n
+                    S(i, j) = S(i, j) + e(k, i) * e(k, j)
+                Next
+            Next
+        Next
+        Range("H11").Value = "行列式"
+        Range("H12").Value = .MDeterm(S)
+        S = .MInverse(S)
+        For i = 1 To n
+            For j = 1 To c
+                For k = 1 To c
+                    On Error Resume Next
+                    D2(i) = D2(i) + e(i, j) * e(i, k) * S(j, k) * (n - 1)
+                Next
+            Next
+        Next
+        F = .F_Inv_RT(0.05, 1, n - c - 1)                           '区間推定用のＦ値n-c-1
+    End With
+    
+    '信頼区間と予測区間を計算
+    ReDim CI(1 To n)
+    ReDim PI(1 To n)
+    For i = 1 To n
+        '信頼区間の幅
+        CI(i) = Sqr(F * (1 / n + D2(i) / (n - 1)) * Range("C13").Value / (n - c - 1)) 'n-c-1
+        '予測区間の幅
+        PI(i) = Sqr(F * (1 + 1 / n + D2(i) / (n - 1)) * Range("C13").Value / (n - c - 1)) 'n-c-1
+        With Range("E25").Offset(c - 1)
+            .Offset(i - 1).Value = .Offset(i - 1, -3).Value - CI(i)
+            .Offset(i - 1, 1).Value = .Offset(i - 1, -3).Value + CI(i)
+            .Offset(i - 1, 2).Value = .Offset(i - 1, -3).Value - PI(i)
+            .Offset(i - 1, 3).Value = .Offset(i - 1, -3).Value + PI(i)
+        End With
+    Next
+    
+    Call Sheets(1).Move(Before:=Sheets("read data"))                '重回帰分析結果を右に移動
+    
+    Sheets(2).Activate                                              'アクティブを戻す
+    
+    '2:Stepwise法
+    
+    'SW使用の判定
+    For i = c - 1 To 0 Step -1
+        If Cells(18 + i, 4).Value < Worksheets("read data").Cells(1, 1).Value And Cells(18 + i, 4).Value > Worksheets("read data").Cells(1, 2).Value Then
+            m = m + 1
+        Else
+            m = m + 0
+        End If
+    Next i
+    
+    '2回目以降のSW+重回帰分析の判定
+    If m > 0 Then
+        Do While m > 0                                              '終了条件指定
+            m = 0                                                   '初期化
+            '切片以外のSW判定
+            For i = c - 1 To 0 Step -1
+                If Cells(18 + i, 4).Value < Worksheets("read data").Cells(1, 1).Value And Cells(18 + i, 4).Value > Worksheets("read data").Cells(1, 2).Value Then
+                    ActiveSheet.Rows(18 + i).Delete
+                    Sheets(1).Columns(i + 2).Delete
+                    m = m + 1
+                Else
+                    m = m + 0
+                End If
+            Next i
+            
+            '前回の重回帰分析結果の削除(エラー防止)
+            Application.DisplayAlerts = False
+            Sheets(2).Delete
+            Application.DisplayAlerts = True
+            
+            Sheets(1).Activate                                      'アクティブをSheet1に戻す
+            
+            'All Data更新
+            Sheets(1).Range("A1").CurrentRegion.Select   '表自動選択
+            c = Selection.Columns.Count - 1                         '説明変数の数
+            d = c + 1                                               '拡張した説明変数の数
+            n = Selection.Rows.Count - 1                            '観測数
+            Set y = Selection.Resize(, 1)                           '目的変数
+            Set x = Selection.Resize(, c).Offset(, 1)               '説明変数
+    
+            '重回帰分析start
+            '回帰分析実行
+            Application.Run "ATPVBAEN.XLAM!Regress", y, x, False, True, 99, "", _
+            True, True, False, False, , False
+    
+            '最下部指定
+            Set Rng = Range("A1048576").End(xlUp)
+        
+            '信頼区間と予測区間の空欄を作成＆書式設定作成
+            With ActiveSheet.Range("E24:H24").Offset(c - 1)
+                .Value = Array("信頼区間" & vbLf & "下限95%", "信頼区間" & vbLf & "上限95%", _
+                    "予測区間" & vbLf & "下限95%", "予測区間" & vbLf & "上限95%")
+                .HorizontalAlignment = xlCenter
+                With .Borders(xlEdgeTop)
+                    .LineStyle = True
+                    .Weight = xlMedium
+                End With
+                .Borders(xlEdgeBottom).LineStyle = True
+                With .Offset(Rng.Row - 24 - c + 1).Borders(xlEdgeBottom)
+                    .LineStyle = True
+                    .Weight = xlMedium
+                End With
+            End With
+            ActiveSheet.Range("A:I").EntireColumn.AutoFit
+    
+            '標準化残差修正
+            Set Rng = Cells.Find(What:="標準残差")
+            Rng.Value = "標準化残差"
+            Rng.Offset(, -3).Value = "観測(ID)"
+            Set Rng = Rng.Offset(1)
+            Do Until Rng.Value = ""
+                Rng.Value = Rng.Offset(, -1) / Range("B7")
+                If Abs(Rng.Value) > 3 Then Rng.Font.Color = vbRed
+                Set Rng = Rng.Offset(1)
+            Loop
+    
+            'マハラノビス汎距離計算
+            ReDim e(1 To n, 1 To c)
+            ReDim S(1 To c, 1 To c)
+            ReDim D2(1 To n)
+            With Application.WorksheetFunction
+                For j = 1 To c
+                    Set x_ = x.Resize(, 1).Offset(, j - 1)
+                    Avg = .Average(x_)
+                    For i = 1 To n
+                        e(i, j) = x_(i + 1, 1) - Avg
+                    Next
+                Next
+                For i = 1 To c
+                    For j = 1 To c
+                        For k = 1 To n
+                            S(i, j) = S(i, j) + e(k, i) * e(k, j)
+                        Next
+                    Next
+                Next
+                Range("H11").Value = "行列式"
+                Range("H12").Value = .MDeterm(S)
+                S = .MInverse(S)
+                For i = 1 To n
+                    For j = 1 To c
+                        For k = 1 To c
+                            On Error Resume Next
+                            D2(i) = D2(i) + e(i, j) * e(i, k) * S(j, k) * (n - 1)
+                        Next
+                    Next
+                Next
+                F = .F_Inv_RT(0.05, 1, n - c - 1)                   '区間推定用のＦ値n-c-1
+            End With
+    
+            '信頼区間と予測区間を計算
+            ReDim CI(1 To n)
+            ReDim PI(1 To n)
+            For i = 1 To n
+                '信頼区間の幅
+                CI(i) = Sqr(F * (1 / n + D2(i) / (n - 1)) * Range("C13").Value / (n - c - 1)) 'n-c-1
+                '予測区間の幅
+                PI(i) = Sqr(F * (1 + 1 / n + D2(i) / (n - 1)) * Range("C13").Value / (n - c - 1)) 'n-c-1
+                With Range("E25").Offset(c - 1)
+                    .Offset(i - 1).Value = .Offset(i - 1, -3).Value - CI(i)
+                    .Offset(i - 1, 1).Value = .Offset(i - 1, -3).Value + CI(i)
+                    .Offset(i - 1, 2).Value = .Offset(i - 1, -3).Value - PI(i)
+                    .Offset(i - 1, 3).Value = .Offset(i - 1, -3).Value + PI(i)
+                End With
+            Next
+            
+            Call Sheets(1).Move(Before:=Sheets("read data"))        '重回帰分析結果を右に移動
+        Loop
+        
+    End If
+
+    '読み取りシートの削除
+    Application.DisplayAlerts = False
+    Worksheets("read data").Delete
+    Application.DisplayAlerts = True
+    
+    Call Sheets("Sheet1").Move(Before:=Sheets(1))
+    
+    '4:共線性チェック
+    
+    'vif用データ作成
+    Worksheets.add After:=Worksheets(2)
+    Sheets(2).Range("A1").CurrentRegion.Copy Sheets(3).Range("A1")
+    
+    Sheets(3).Activate                                              'アクティブをvif用データに移す
+    
+    ActiveSheet.Rows(1).Delete                                      '名称＆目的変数列削除
+    ActiveSheet.Columns(1).Delete
+    
+    Sheets(3).Range("A1").CurrentRegion.Select                      '表自動選択
+    
+    c = Selection.Columns.Count                                     '説明変数の数
+    n = Selection.Rows.Count                                        '観測数
+    
+    '共線性処理追加
+    Worksheets.add After:=Worksheets(Worksheets.Count)              'VIF-correlシート作成
+    ActiveSheet.Name = "vifc data"
+    Worksheets("vifc data").Activate
+    
+    For i = 1 To c  '1,2,3
+        For j = 1 To c 'A,B,C
+                Cells(i, j).Value = WorksheetFunction.Correl(Range(Sheets(3).Cells(1, i), Sheets(3).Cells(n, i)), Range(Sheets(3).Cells(1, j), Sheets(3).Cells(n, j)))
+        Next j
+    Next i
+    
+    Worksheets.add After:=Worksheets(Worksheets.Count)              'VIF-minverseシート作成
+    ActiveSheet.Name = "vifm data"
+    Worksheets("vifm data").Activate
+
+    Range(Cells(1, 1), Cells(c, c)) = WorksheetFunction.MInverse(Range(Worksheets("vifc data").Cells(1, 1), Worksheets("vifc data").Cells(c, c)))
+    
+                
+    '試験用sw1時
+    'Worksheets("vifm data").Cells(3, 3).Value = 10
+    
+    
+    '共線性処理の判定
+    m = 0
+    For i = 1 To c
+        If Worksheets("vifm data").Cells(i, i).Value >= 10 Then                             '理論値10とvifの比較
+        m = m + 1
+        End If
+    Next i
+    
+    'シートの削除
+    Application.DisplayAlerts = False
+    Sheets(3).Delete
+    Worksheets("vifc data").Delete
+    Worksheets("vifm data").Delete
+    Application.DisplayAlerts = True
+    Sheets(2).Activate                               'アクティブを戻す
+    
+    '2回目以降の共線性処理の判定
+    If m > 0 Then
+        Do While m > 0                                              '終了条件指定
+            m = 0                                                   '初期化
+            
+            'vif用データ作成
+            Worksheets.add After:=Worksheets(2)
+            Sheets(2).Range("A1").CurrentRegion.Copy Sheets(3).Range("A1")
+                
+            Sheets(3).Activate                                              'アクティブをvif用データに移す
+                
+            ActiveSheet.Rows(1).Delete                                      '名称＆目的変数列削除
+            ActiveSheet.Columns(1).Delete
+                
+            Sheets(3).Range("A1").CurrentRegion.Select                      '表自動選択
+            c = Selection.Columns.Count                                     '説明変数の数
+            n = Selection.Rows.Count                                        '観測数
+                
+            '共線性処理追加
+            Worksheets.add After:=Worksheets(Worksheets.Count)              'VIF-correlシート作成
+            ActiveSheet.Name = "vifc data"
+            Worksheets("vifc data").Activate
+                
+            For i = 1 To c  '1,2,3
+                For j = 1 To c 'A,B,C
+                    Cells(i, j).Value = WorksheetFunction.Correl(Range(Sheets(3).Cells(1, i), Sheets(3).Cells(n, i)), Range(Sheets(3).Cells(1, j), Sheets(3).Cells(n, j)))
+                Next j
+            Next i
+    
+            Worksheets.add After:=Worksheets(Worksheets.Count)              'VIF-minverseシート作成
+            ActiveSheet.Name = "vifm data"
+            Worksheets("vifm data").Activate
+
+            Range(Cells(1, 1), Cells(c, c)) = WorksheetFunction.MInverse(Range(Worksheets("vifc data").Cells(1, 1), Worksheets("vifc data").Cells(c, c)))
+            
+            '試験用
+            'If Worksheets("vifm data").Cells(3, 3).Value > 3 Then
+            '    Worksheets("vifm data").Cells(3, 3).Value = 10
+            'End If
+            
+            
+            Sheets(2).Activate                                     'アクティブを戻す
+            
+            '共線性処理の判定
+            For i = 1 To c
+                If Worksheets("vifm data").Cells(i, i).Value >= 10 Then                             '理論値10とvifの比
+                    Sheets(2).Columns(i + 1).Delete
+                    m = m + 1
+                Else
+                    m = m + 0
+                End If
+            Next i
+            
+            'All Data更新
+            Sheets(2).Range("A1").CurrentRegion.Select   '表自動選択
+            c = Selection.Columns.Count - 1                         '説明変数の数
+            d = c + 1                                               '拡張した説明変数の数
+            n = Selection.Rows.Count - 1                            '観測数
+            Set y = Selection.Resize(, 1)                           '目的変数
+            Set x = Selection.Resize(, c).Offset(, 1)               '説明変数
+    
+            '重回帰分析start
+            '回帰分析実行
+            Application.Run "ATPVBAEN.XLAM!Regress", y, x, False, True, 99, "", _
+            True, True, False, False, , False
+    
+            '最下部指定
+            Set Rng = Range("A1048576").End(xlUp)
+        
+            '信頼区間と予測区間の空欄を作成＆書式設定作成
+            With ActiveSheet.Range("E24:H24").Offset(c - 1)
+                .Value = Array("信頼区間" & vbLf & "下限95%", "信頼区間" & vbLf & "上限95%", _
+                    "予測区間" & vbLf & "下限95%", "予測区間" & vbLf & "上限95%")
+                .HorizontalAlignment = xlCenter
+                With .Borders(xlEdgeTop)
+                    .LineStyle = True
+                    .Weight = xlMedium
+                End With
+                .Borders(xlEdgeBottom).LineStyle = True
+                With .Offset(Rng.Row - 24 - c + 1).Borders(xlEdgeBottom)
+                    .LineStyle = True
+                    .Weight = xlMedium
+                End With
+            End With
+            ActiveSheet.Range("A:I").EntireColumn.AutoFit
+    
+            '標準化残差修正
+            Set Rng = Cells.Find(What:="標準残差")
+            Rng.Value = "標準化残差"
+            Rng.Offset(, -3).Value = "観測(ID)"
+            Set Rng = Rng.Offset(1)
+            Do Until Rng.Value = ""
+                Rng.Value = Rng.Offset(, -1) / Range("B7")
+                If Abs(Rng.Value) > 3 Then Rng.Font.Color = vbRed
+                Set Rng = Rng.Offset(1)
+            Loop
+    
+            'マハラノビス汎距離計算
+            ReDim e(1 To n, 1 To c)
+            ReDim S(1 To c, 1 To c)
+            ReDim D2(1 To n)
+            With Application.WorksheetFunction
+                For j = 1 To c
+                    Set x_ = x.Resize(, 1).Offset(, j - 1)
+                    Avg = .Average(x_)
+                    For i = 1 To n
+                        e(i, j) = x_(i + 1, 1) - Avg
+                    Next
+                Next
+                For i = 1 To c
+                    For j = 1 To c
+                        For k = 1 To n
+                            S(i, j) = S(i, j) + e(k, i) * e(k, j)
+                        Next
+                    Next
+                Next
+                Range("H11").Value = "行列式"
+                Range("H12").Value = .MDeterm(S)
+                S = .MInverse(S)
+                For i = 1 To n
+                    For j = 1 To c
+                        For k = 1 To c
+                            On Error Resume Next
+                            D2(i) = D2(i) + e(i, j) * e(i, k) * S(j, k) * (n - 1)
+                        Next
+                    Next
+                Next
+                F = .F_Inv_RT(0.05, 1, n - c - 1)                   '区間推定用のＦ値n-c-1
+            End With
+    
+            '信頼区間と予測区間を計算
+            ReDim CI(1 To n)
+            ReDim PI(1 To n)
+            For i = 1 To n
+                '信頼区間の幅
+                CI(i) = Sqr(F * (1 / n + D2(i) / (n - 1)) * Range("C13").Value / (n - c - 1)) 'n-c-1
+                '予測区間の幅
+                PI(i) = Sqr(F * (1 + 1 / n + D2(i) / (n - 1)) * Range("C13").Value / (n - c - 1)) 'n-c-1
+                With Range("E25").Offset(c - 1)
+                    .Offset(i - 1).Value = .Offset(i - 1, -3).Value - CI(i)
+                    .Offset(i - 1, 1).Value = .Offset(i - 1, -3).Value + CI(i)
+                    .Offset(i - 1, 2).Value = .Offset(i - 1, -3).Value - PI(i)
+                    .Offset(i - 1, 3).Value = .Offset(i - 1, -3).Value + PI(i)
+                End With
+            Next
+            
+            Call Sheets(2).Move(Before:=Sheets("vifm data"))        '重回帰分析結果を右に移動
+            
+            '削除(エラー防止)
+            Application.DisplayAlerts = False
+            Sheets(4).Delete
+            Sheets(3).Delete
+            Worksheets("vifc data").Delete
+            Worksheets("vifm data").Delete
+            Application.DisplayAlerts = True
+        Loop
+    End If
+End Sub
