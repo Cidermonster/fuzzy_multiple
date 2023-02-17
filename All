@@ -197,6 +197,8 @@ Sub ALL()
     For i = c - 1 To 0 Step -1
         If Cells(18 + i, 4).Value < Worksheets("read data").Cells(1, 1).Value And Cells(18 + i, 4).Value > Worksheets("read data").Cells(1, 2).Value Then
             m = m + 1
+        ElseIf Cells(18 + i, 4).Value = 65535 Then '作動未確認
+            m = m + 1
         Else
             m = m + 0
         End If
@@ -206,20 +208,31 @@ Sub ALL()
     If m > 0 Then
         Do While m > 0                                              '終了条件指定
             m = 0                                                   '初期化
+            Worksheets("read data").Cells(1, 3).Value = Worksheets("read data").Cells(1, 1).Value
             '切片以外のSW判定
             For i = c - 1 To 0 Step -1
                 If Cells(18 + i, 4).Value < Worksheets("read data").Cells(1, 1).Value And Cells(18 + i, 4).Value > Worksheets("read data").Cells(1, 2).Value Then
-                    ActiveSheet.Rows(18 + i).Delete
-                    Sheets(1).Columns(i + 2).Delete
-                    m = m + 1
-                ElseIf Cells(18 + i, 4).Value = 65535 Then '作動未確認
-                    ActiveSheet.Rows(18 + i).Delete
-                    Sheets(1).Columns(i + 2).Delete
-                    m = m + 1
-                Else
-                    m = m + 0
+                    If Abs(Cells(18 + i, 4).Value) < Worksheets("read data").Cells(1, 3).Value Then
+                        Worksheets("read data").Cells(1, 3).Value = Abs(Cells(18 + i, 4).Value)
+                        Worksheets("read data").Cells(1, 4).Value = i
+                        m = m + 1
+                    End If
                 End If
             Next i
+            
+            If m = 0 Then
+                For i = c - 1 To 0 Step -1
+                    If Cells(18 + i, 4).Value = 65535 Then '作動未確認
+                        Worksheets("read data").Cells(1, 4).Value = i
+                        m = m + 1
+                    End If
+                Next i
+            End If
+            
+            If m > 0 Then
+                ActiveSheet.Rows(18 + Worksheets("read data").Cells(1, 4).Value).Delete
+                Sheets(1).Columns(Worksheets("read data").Cells(1, 4).Value + 2).Delete
+            End If
             
             '前回の重回帰分析結果の削除(エラー防止)
             Application.DisplayAlerts = False
