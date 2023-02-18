@@ -1,4 +1,4 @@
-#fuzzy multiple regression analysis
+#fuzzy_multiple_regression_analysis
 This macro file can be used with Microsoft Excel on Windows.
 However, in order to use this macro file in Excel, the analysis tool must be enabled from the add-in.
 
